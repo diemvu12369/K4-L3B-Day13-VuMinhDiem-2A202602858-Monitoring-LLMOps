@@ -53,6 +53,7 @@ Output baseline CP0/CP1 dạng text: [evidence/cp0-cp1-results.txt](evidence/cp0
 - **Các metadata được ghi vào structured log:** `user_id_hash`, `session_id`, `feature`, `model`, `env` và `correlation_id`.
 - **Cách bảo đảm PII được scrub trước khi ghi:** `scrub_event` đệ quy qua các chuỗi ở mọi field trước `JsonlFileProcessor` và JSON renderer.
 - **Cách kiểm chứng kết quả:** PII tests cho email, điện thoại VN, CCCD, thẻ; test event lồng nhau và middleware; log validator cuối đạt 100/100 với 0 PII leak.
+- **Request dùng cho evidence:** ảnh 04 là `req-0da13c04` (message "Explain traces", `latency_ms` 152), trace `0c8feb2550b7130a201ff8cd57a9920f` dùng cho ảnh 07/08a/08b; ảnh 05 là `req-0da13c05` với message chứa email, số điện thoại VN, CCCD và số thẻ giả theo đề (lệnh ở mục 8.2) → log chỉ còn `[REDACTED_EMAIL] [REDACTED_PHONE_VN] [REDACTED_CCCD] [REDACTED_CREDIT_CARD]` (trace `8a8be4cedd4d666b9f41373131754b6b`).
 
 ## 5. Tracing và prompt versioning
 
@@ -109,10 +110,10 @@ Output baseline CP0/CP1 dạng text: [evidence/cp0-cp1-results.txt](evidence/cp0
 
 ## 9. Checklist trước khi nộp
 
-- [ ] Kết quả và evidence thuộc commit SHA cuối.
-- [ ] Tất cả ảnh/output mở được bằng đường dẫn tương đối.
-- [ ] Incident evidence nối đúng metric → log → trace.
-- [ ] Trace/prompt evidence thuộc project Langfuse cá nhân và ảnh không lộ key/secret.
-- [ ] Repository chạy lại được theo README.
-- [ ] Không có secret, API key, PII thô hoặc evidence của người khác/lớp khác.
+- [x] Kết quả và evidence thuộc commit SHA cuối.
+- [x] Tất cả ảnh/output mở được bằng đường dẫn tương đối.
+- [x] Incident evidence nối đúng metric → log → trace.
+- [x] Trace/prompt evidence thuộc project Langfuse cá nhân và ảnh không lộ key/secret.
+- [x] Repository chạy lại được theo README.
+- [x] Không có secret, API key, PII thô hoặc evidence của người khác/lớp khác.
 - [ ] URL repo và commit SHA cuối đã được nộp trên LMS/Codelabs.
