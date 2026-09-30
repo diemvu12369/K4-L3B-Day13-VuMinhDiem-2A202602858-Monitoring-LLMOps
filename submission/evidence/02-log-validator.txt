@@ -1,0 +1,27 @@
+$ python scripts/load_test.py --concurrency 5
+[200] req-1ec3c36b | qa | 1450.7ms
+[200] req-99faf7fd | summary | 1765.2ms
+[200] req-a85da422 | qa | 1930.9ms
+[200] req-24ff9b9e | qa | 1935.3ms
+[200] req-4825b7e8 | qa | 1935.3ms
+[200] req-1ec84c94 | summary | 816.8ms
+[200] req-f062d19a | qa | 826.1ms
+[200] req-5561b157 | qa | 821.8ms
+[200] req-10561edb | qa | 821.1ms
+[200] req-e495f1d7 | qa | 818.9ms
+
+$ python scripts/validate_logs.py
+--- Lab Verification Results ---
+Total log records analyzed: 21
+Records with missing required fields: 0
+Records with missing enrichment (context): 0
+Unique correlation IDs found: 10
+Potential PII leaks detected: 0
+
+--- Grading Scorecard (Estimates) ---
++ [PASSED] Basic JSON schema
++ [PASSED] Correlation ID propagation
++ [PASSED] Log enrichment
++ [PASSED] PII scrubbing
+
+Estimated Score: 100/100
