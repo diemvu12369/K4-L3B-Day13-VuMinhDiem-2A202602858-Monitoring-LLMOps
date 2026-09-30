@@ -54,21 +54,28 @@
 
 ## 5. Tracing và prompt versioning
 
-- **Cách xác nhận traces do chính tôi tạo trong project cá nhân:**
-- **Cấu trúc root/retrieval/generation observations:**
-- **Cách nối trace với log:**
-- **Prompt name:**
-- **Version/label baseline:**
-- **Version/label candidate:**
-- **Trace ID của mỗi version:**
-- **Cách promote và rollback `production`:**
+- **Cách xác nhận traces do chính tôi tạo trong project cá nhân:** tự chạy `load_test.py --concurrency 5` (2 lượt) và các request prompt demo bằng key của project cá nhân; kiểm tra qua Langfuse API: 23 trace có đủ root + retrieval + generation, mỗi trace mang `correlation_id` trùng với `data/logs.jsonl`.
+- **Cấu trúc root/retrieval/generation observations:** `lab-agent-run` (agent, root, metadata prompt/doc_count/query preview đã scrub) → `retrieval` (retriever, input `query_preview` đã scrub, output `doc_count`) và `llm-generation` (generation, model `claude-sonnet-4-5`, link tới prompt Langfuse, `usage_details` input/output, `cost_details` input/output/total, `completion_start_time` = TTFT). Không capture raw input/output; chỉ preview qua `summarize_text` (đã scrub PII).
+- **Cách nối trace với log:** middleware sinh/nhận `x-request-id` → `correlation_id` được bind vào log và truyền vào `propagate_attributes(metadata=...)` của trace, cộng thêm trong metadata của `retrieval`/`llm-generation`; tìm trace bằng metadata `correlation_id` hoặc từ log line.
+- **Prompt name:** `day13-chat` (text prompt, giữ đủ `{{feature}}`, `{{docs}}`, `{{message}}`).
+- **Version/label baseline:** version 1, labels `baseline` + `production` ban đầu (template starter).
+- **Version/label candidate:** version 2, label `candidate`; thêm dòng `Instruction=Answer in at most 3 short sentences, only from Docs.` → `tokens_in` cùng input tăng từ 45 lên 61.
+- **Trace ID của mỗi version:** cùng input "Explain how metrics, logs and traces work together for monitoring":
+  - `baseline` → v1: trace `504074fc4dbdbe565933a2c5aa56ab0a` (`req-b1000004`)
+  - `candidate` → v2: trace `c52beebf7f5858185ae390cc3125038d` (`req-c2000002`)
+  - `production` sau khi promote → v2: trace `d58dd521306421d8cf146a1f4e80d1ac` (`req-a2000003`)
+  - `production` sau khi rollback → v1: trace `e72cc7c25c3d541c5440b428018c8759` (`req-a1000005`, `tokens_in` về lại 45)
+- **Cách promote và rollback `production`:** app chỉ đọc `LANGFUSE_PROMPT_NAME`/`LANGFUSE_PROMPT_LABEL`, không sửa code. Promote: gắn label `production` cho version 2 (Langfuse tự gỡ label khỏi version 1). Rollback: gắn lại `production` cho version 1. Prompt cache TTL 60s nên chờ ≥60s hoặc restart API rồi chạy lại request để xác nhận `prompt_version` trong trace.
 
 ## 6. Dashboard, SLO và alerts
 
-- **Dashboard và sáu panel:**
-- **SLO và lý do chọn:**
-- **Cách tính error budget:**
-- **Ba alert và runbook tương ứng:**
+- **Dashboard và sáu panel:** `python scripts/build_dashboard.py [--watch]` đọc `data/logs.jsonl` và `config/dashboard.yaml`, ghi `data/dashboard.html` (time range 60 phút, refresh 30s, đơn vị và đường threshold từ contract, trạng thái Đạt/Vượt ngưỡng từng panel). Sáu panel: Latency (P50/P95/P99 + TTFT P95), Traffic (count, request/phút), Errors (error rate %, breakdown `error_type`, retrieval success %), Cost (USD/phút, tổng), Tokens (tokens_in/tokens_out), Quality (mean). `validate_dashboard.py`: 6/6. Baseline lúc 10:43: P50 154ms, P95 1564ms, P99 6204ms (request đầu khi mạng tới Langfuse chậm), TTFT P95 50ms, error 0%, retrieval success 100%, tổng cost 0.129 USD, 10,579 tokens, quality 0.865.
+- **SLO và lý do chọn:** `fast_successful_requests`: 99.5% request có `response_sent` với `latency_ms <= 3000` trong 28 ngày. Giữ ngưỡng 3000ms vì P95 thực tế ~1.5s (có tracing Cloud), còn khoảng đệm ~2x nhưng vẫn bắt được retrieval chậm thêm ~2.5s/request.
+- **Cách tính error budget:** 100% − 99.5% = 0.5%. Với 10,000 request/28 ngày → tối đa 50 request lỗi hoặc > 3000ms. Request lỗi (không có `response_sent`) cũng tính là bad event.
+- **Ba alert và runbook tương ứng:** (Slack `#k4-l3b-alerts`, owner `student-2A202602858`, chi tiết trong `docs/alerts.md`)
+  1. `HighLatencyP95` (warning, 5m): P95 latency > 3000ms → runbook `docs/alerts.md#alert-1`.
+  2. `HighErrorRateOrRetrievalFailure` (critical, 5m): error rate > 2% hoặc retrieval success < 90% → `#alert-2`.
+  3. `CostPerRequestSpike` (warning, 15m): cost trung bình > 0.004 USD/request (2x baseline) hoặc > 0.104 USD/giờ (guardrail 2.5 USD/ngày) → `#alert-3`.
 
 > Ví dụ cách viết error budget: "SLO 99.5% trong 28 ngày nghĩa là error budget 0.5%. Nếu workload có 10,000 request thì tối đa 50 request được phép lỗi hoặc chậm hơn ngưỡng SLO."
 

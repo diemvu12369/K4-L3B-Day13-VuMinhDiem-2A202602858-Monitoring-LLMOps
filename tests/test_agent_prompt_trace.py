@@ -16,10 +16,26 @@ class ManagedPrompt:
         )
 
 
+class RecordingObservation:
+    def __init__(self, **kwargs) -> None:
+        self.start = kwargs
+        self.updates: list[dict] = []
+
+    def update(self, **kwargs) -> None:
+        self.updates.append(kwargs)
+
+
 class RecordingLangfuseClient:
     def __init__(self) -> None:
         self.prompt = ManagedPrompt()
         self.span_updates: list[dict] = []
+        self.observations: list[RecordingObservation] = []
+
+    @contextmanager
+    def start_as_current_observation(self, **kwargs):
+        observation = RecordingObservation(**kwargs)
+        self.observations.append(observation)
+        yield observation
 
     def get_prompt(self, name: str, **kwargs):
         return self.prompt
@@ -67,3 +83,35 @@ def test_agent_records_prompt_version_with_v4_observation_api(monkeypatch) -> No
     assert span_update["version"] == "3"
     assert propagated[0]["metadata"]["correlation_id"] == "req-12345678"
     assert propagated[-1]["prompt"] is client.prompt
+
+
+def test_agent_records_retrieval_and_generation_child_observations(monkeypatch) -> None:
+    client = RecordingLangfuseClient()
+    monkeypatch.setattr(agent_module, "get_langfuse_client", lambda: client)
+    monkeypatch.setattr(agent_module, "tracing_enabled", lambda: True)
+
+    agent = agent_module.LabAgent()
+    result = agent_module.LabAgent.run.__wrapped__(
+        agent,
+        user_id="student-01",
+        feature="qa",
+        session_id="session-01",
+        message="Email me at student@example.com about monitoring",
+        correlation_id="req-12345678",
+    )
+
+    retrieval, generation = client.observations
+    assert retrieval.start["name"] == "retrieval"
+    assert retrieval.start["as_type"] == "retriever"
+    assert retrieval.updates[-1]["output"] == {"doc_count": 1}
+
+    assert generation.start["as_type"] == "generation"
+    assert generation.start["model"] == agent.model
+    assert generation.start["prompt"] is client.prompt
+    assert generation.start["metadata"]["correlation_id"] == "req-12345678"
+    assert "student@example.com" not in str(generation.start["input"])
+    assert "student@example.com" not in str(retrieval.start["input"])
+
+    update = generation.updates[-1]
+    assert update["usage_details"] == {"input": result.tokens_in, "output": result.tokens_out}
+    assert update["cost_details"]["total"] == result.cost_usd
