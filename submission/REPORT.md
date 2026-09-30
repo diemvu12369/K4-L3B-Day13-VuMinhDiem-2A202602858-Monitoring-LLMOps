@@ -18,10 +18,10 @@
 
 | Evidence | Đường dẫn |
 |---|---|
-| Pytest cuối | `evidence/01-pytest.png` |
-| Log validator | `evidence/02-log-validator.png` |
-| Dashboard validator | `evidence/03-dashboard-validator.png` |
-| Structured log | `evidence/04-structured-log.png` |
+| Pytest cuối | `evidence/cp0-cp1-results.txt` |
+| Log validator | `evidence/cp0-cp1-results.txt` |
+| Dashboard validator | `evidence/cp0-cp1-results.txt` |
+| Structured log | `evidence/04-structured-log.png` (log: `evidence/cp1-structured-logs.jsonl`) |
 | PII redaction | `evidence/05-pii-redaction.png` |
 | Trace list | `evidence/06-trace-list.png` |
 | Trace waterfall | `evidence/07-trace-waterfall.png` |
@@ -37,20 +37,20 @@
 
 | Nội dung | Baseline | Kết quả cuối | Nhận xét |
 |---|---|---|---|
-| `validate_logs.py` | | | |
-| `validate_dashboard.py` | | | |
-| `pytest` | | | |
-| Số traces hợp lệ | | | |
-| Số PII leak | | | |
-| Latency P95 / TTFT P95 | | | |
-| Retrieval success rate | | | |
+| `validate_logs.py` | 30/100, 21 records; 20 thiếu field bắt buộc và enrichment, 0 correlation ID | 100/100, 25 records; 12 correlation ID, 0 thiếu field/enrichment, 0 PII leak | Baseline trước CP1 được giữ tại `evidence/cp0-pre-cp1-logs.jsonl`; lượt cuối dùng log sạch sau sửa |
+| `validate_dashboard.py` | HỢP LỆ: 6/6 panel | HỢP LỆ: 6/6 panel | Contract validator |
+| `pytest` | Chưa chạy được ở Python mặc định do thiếu `structlog` và `langfuse` | 27 passed trong `.venv` | Dependencies đã cài theo `requirements.txt` |
+| Số traces hợp lệ | 0 (chưa cấu hình Langfuse) | 11 traces `lab-agent-run` trên Langfuse Cloud, mỗi trace có `correlation_id` khớp log (vd. `req-0b0868de`) | `/health` báo `tracing_enabled: true`; child span retrieval/generation thuộc CP2 |
+| Số PII leak | 0 | 0 | Được kiểm tra bởi log validator |
+| Latency P95 / TTFT P95 | Chưa đo | Chưa đo | Ngoài phạm vi CP0/CP1 |
+| Retrieval success rate | Chưa đo | Chưa đo | Ngoài phạm vi CP0/CP1 |
 
 ## 4. Logging và PII
 
-- **Cách tạo/nhận và truyền correlation ID:**
-- **Các metadata được ghi vào structured log:**
-- **Cách bảo đảm PII được scrub trước khi ghi:**
-- **Cách kiểm chứng kết quả:**
+- **Cách tạo/nhận và truyền correlation ID:** nhận `x-request-id` nếu khớp `req-<8-hex>`, nếu không tạo ID mới; bind trong structlog contextvars và trả lại qua response header/body.
+- **Các metadata được ghi vào structured log:** `user_id_hash`, `session_id`, `feature`, `model`, `env` và `correlation_id`.
+- **Cách bảo đảm PII được scrub trước khi ghi:** `scrub_event` đệ quy qua các chuỗi ở mọi field trước `JsonlFileProcessor` và JSON renderer.
+- **Cách kiểm chứng kết quả:** PII tests cho email, điện thoại VN, CCCD, thẻ; test event lồng nhau và middleware; log validator cuối đạt 100/100 với 0 PII leak.
 
 ## 5. Tracing và prompt versioning
 
@@ -88,12 +88,13 @@
 ## 8. Giải thích và tự đánh giá
 
 - **Một quyết định kỹ thuật quan trọng và lý do:**
-- **Một lỗi/blocker đã gặp:**
-- **Cách tìm nguyên nhân và xử lý:**
+- **Một lỗi/blocker đã gặp:** Python mặc định thiếu dependencies; key Langfuse bị điền ngược (public/secret) và mạng timeout khi export span.
+- **Cách tìm nguyên nhân và xử lý:** cài `requirements.txt` trong `.venv`; kiểm tra prefix `pk-lf-`/`sk-lf-` và `auth_check()`, đổi mạng rồi chạy lại load test, xác nhận trace qua Langfuse API.
 - **Cách hiểu luồng Metrics → Logs → Traces:**
 - **Vai trò của prompt version, token/cost, SLO hoặc rollback trong vận hành LLM:**
 - **Điều quan trọng nhất đã học:**
 - **Hạn chế hoặc phần chưa hoàn thành, nếu có:**
+	CP0/CP1 đã hoàn thành. Prompt `day13-chat` chưa tạo trên Langfuse nên app dùng fallback prompt (sẽ làm ở CP2).
 
 ## 9. Checklist trước khi nộp
 

@@ -1,4 +1,5 @@
 from app.pii import scrub_text
+from app.logging_config import scrub_event
 
 
 def test_scrub_email() -> None:
@@ -20,3 +21,34 @@ def test_scrub_common_vietnamese_phone_formats() -> None:
         out = scrub_text(f"Contact: {phone_number}")
         assert phone_number not in out
         assert "REDACTED_PHONE_VN" in out
+
+
+def test_scrub_cccd() -> None:
+    out = scrub_text("CCCD: 012345678901")
+    assert "012345678901" not in out
+    assert "REDACTED_CCCD" in out
+
+
+def test_scrub_credit_card() -> None:
+    out = scrub_text("Card: 4111 1111 1111 1111")
+    assert "4111 1111 1111 1111" not in out
+    assert "REDACTED_CREDIT_CARD" in out
+
+
+def test_scrub_event_redacts_nested_and_top_level_strings() -> None:
+    event = {
+        "event": "contact student@vinuni.edu.vn",
+        "payload": {"phone": "0901234567", "identity": "012345678901"},
+        "detail": "Card 4111 1111 1111 1111",
+    }
+
+    scrub_event(None, "info", event)
+
+    rendered = str(event)
+    for raw_value in (
+        "student@vinuni.edu.vn",
+        "0901234567",
+        "012345678901",
+        "4111 1111 1111 1111",
+    ):
+        assert raw_value not in rendered

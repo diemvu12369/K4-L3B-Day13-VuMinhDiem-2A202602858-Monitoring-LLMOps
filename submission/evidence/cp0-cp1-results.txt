@@ -1,0 +1,25 @@
+CP0 baseline (before CP1 changes)
+=================================
+Load test: 10 requests returned HTTP 200; response correlation ID was MISSING.
+Log validator: 21 records; 20 missing required fields; 20 missing enrichment fields;
+0 unique correlation IDs; 0 detected PII; estimated score 30/100.
+Dashboard validator: HOP LE: 6/6 panels.
+Baseline pytest in the default Python interpreter could not collect tests because
+structlog and langfuse were not installed there.
+
+CP0/CP1 verification (after changes, fresh data/logs.jsonl, 2026-09-30 10:12 +07)
+===============================================================================
+Health: {"ok": true, "tracing_enabled": false}
+Load test: 10 requests returned HTTP 200 with req-<8-hex> IDs.
+Supplied x-request-id req-0000beef was echoed back; response carries x-response-time-ms.
+PII demo input (fake data): a@b.vn 0912345678 012345678901 4111111111111111
+PII demo log preview: [REDACTED_EMAIL] [REDACTED_PHONE_VN] [REDACTED_CCCD] [REDACTED_CREDIT_CARD]
+Log validator: 25 records; 0 missing required fields; 0 missing enrichment fields;
+12 unique correlation IDs; 0 detected PII; estimated score 100/100.
+Dashboard validator: HOP LE: 6/6 panels.
+Pytest in the repository .venv: 27 passed.
+
+Langfuse Cloud (2026-09-30 10:28 +07): auth_check() = True, /health tracing_enabled: true.
+Load test produced 10 traces "lab-agent-run" in the personal Langfuse project; 11 traces total.
+Each trace metadata carries the same correlation_id as data/logs.jsonl, e.g. req-0b0868de, req-fe620b74.
+Log validator on the full log after this run: 68 records, 32 correlation IDs, 0 PII, 100/100.
